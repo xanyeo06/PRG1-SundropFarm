@@ -1,177 +1,61 @@
-# 🌾 Sundrop Farm
+# PRG1 — Sundrop Farm
 
-A text-based farming simulation game where you manage a small farm in Albatross Town. Plant seeds, harvest crops, and pay off your debt before time runs out!
----
+A terminal farming game in a single Python file, written for a first-year programming assignment. The player begins with $20, a 5x5 farm in Albatross Town and a $100 debt, and has twenty in-game days to clear it. Seeds are bought from a shop, planted on the grid and harvested for cash, with every action drawn against a daily energy allowance. Reaching $100 by the end of day 20 wins the game and records the resulting profit on a local scoreboard.
 
-## 📖 Game Overview
+## Contents
 
-You've taken out a loan to buy a small farm in Albatross Town. Your goal is to **pay off your debt of $100 within 20 days** while managing your energy, money, and resources wisely. Can you turn a profit and become a successful farmer?
+| File | Description |
+| --- | --- |
+| `sundrop_farm.py` | Complete game, single file, standard library only |
 
----
+## Running
 
-## ✨ Features
-
-### Core Gameplay
-- **Farm Management**: Navigate a 5x5 grid farm to plant and harvest crops
-- **Three Crop Types**: 
-  - 🥬 **Lettuce** - Quick growth (2 days), low profit
-  - 🥔 **Potato** - Medium growth (3 days), moderate profit
-  - 🥦 **Cauliflower** - Slow growth (6 days), high profit
-- **Energy System**: Each action costs energy; rest by ending the day
-- **Day/Night Cycle**: 20-day time limit to achieve your goal
-- **Save/Load System**: Save your progress and continue later
-
-### Additional Features ⭐
-1. **Limited Seed Bag Capacity** - Carry up to 10 seeds at a time
-2. **High Score Board** - Compete for the highest profit after winning
-
----
-
-## 🎮 How to Play
-
-### Installation
-
-1. **Requirements**: Python 3.x
-2. **Download**: Clone or download this repository
-3. **Run**: Execute the game file
-   ```bash
-   python sundrop_farm.py
-   ```
-
-### Main Menu Options
-
-```
-1) Start a new game
-2) Show high scores
-3) Load your saved game
-0) Exit Game
+```bash
+python sundrop_farm.py
 ```
 
----
+The source uses f-strings and no third-party imports, so Python 3.6 or later is required. `savegame.txt` is created on the first save and `scoreboard.txt` on the first win, both in the working directory; the high-score screen fails if the latter does not yet exist.
 
-## 🏘️ In Town
+## Gameplay
 
-When in Albatross Town, you can:
+The program opens on a main menu offering a new game, the high-score table or loading a save. A new game starts in town, the hub: 1 enters the seed shop, 2 enters the farm, 3 ends the day, 9 saves and exits, 0 exits without saving. The shop stocks three seed types, and the bag holds ten seeds in total across all types. On the farm the player moves one plot at a time and acts on the current plot; planting consumes one seed from the bag, and harvesting a mature crop sells it immediately at its sale value. Ending the day restores energy to 10, advances the date, reduces every planted crop's remaining growth by one and returns the player to the farmhouse.
 
-| Option | Action |
-|--------|--------|
-| **1** | Visit Pierce's Seed Shop |
-| **2** | Visit Your Farm |
-| **3** | End the Day (restore energy to 10) |
-| **9** | Save Game |
-| **0** | Exit Game |
+| Key | Action | Energy |
+| --- | --- | --- |
+| `W` `A` `S` `D` | Move one plot, if the move stays inside the grid | 1 |
+| `P` | Plant a seed on the current empty plot | 1 |
+| `H` | Harvest the current plot, once growth has reached 0 | 1 |
+| `R` | Return to town | 0 |
 
----
+## Crops and economy
 
-## 🛒 Seed Shop
+| Crop | Seed price | Days to harvest | Sale value | Profit per plot |
+| --- | --- | --- | --- | --- |
+| Lettuce | $2 | 2 | $3 | $1 |
+| Potato | $3 | 3 | $6 | $3 |
+| Cauliflower | $5 | 6 | $14 | $9 |
 
-### Available Seeds
+Per plot per day that is $0.50 for lettuce, $1.00 for potato and $1.50 for cauliflower, so the slow crop returns three times the rate of the fast one. The cost is a plot locked for six days and five times the capital committed, which is decisive while the balance sits near zero.
 
-| Seed | Price | Growth Time | Crop Value | Profit |
-|------|-------|-------------|------------|--------|
-| Lettuce | $2 | 2 days | $3 | $1 |
-| Potato | $3 | 3 days | $6 | $3 |
-| Cauliflower | $5 | 6 days | $14 | $9 |
+## Implementation
 
-**Note:** Your seed bag can only hold **10 seeds maximum**!
+- The farm is a list of five rows of five cells; each cell is a three-slot list of `[crop code, player marker, days remaining]`. The farmhouse is the literal `['HSE', 'X', None]` at `farm[2][2]`, leaving 24 plantable plots. Position is not stored separately: `get_position` scans for the `'X'` marker each turn, and movement rewrites the marker in the old and new cells.
+- Crop statistics sit in the `seeds` dictionary keyed by three-letter code, with `seed_list` fixing the shop's display order. The inventory is `game_vars['bag']`, a code-to-count map; the ten-seed cap is enforced by summing its values against the requested quantity before a purchase is priced.
+- `end_day` advances `day`, resets `energy` and decrements each planted plot's counter. Counters are held as fixed-width strings (`f'{n:^3}'`) so the grid prints in alignment, and are cast back to `int` whenever they are read or decremented.
+- `save_game` writes four `key: value` lines followed by a `Farm:` header and one tab-separated row per grid row, using `repr` of each cell. `load_game` reverses this by splitting on those delimiters.
+- A win appends `name,profit` to `scoreboard.txt`. `show_high_scores` parses each line into a tuple, sorts descending through a key function and prints the top five.
+- Menus are functions that call one another (`main_loop` into `in_town`, then `in_shop` or `in_farm`), so navigation is mutual recursion rather than a loop. Numeric input is read with `int(input())` inside `try`/`except ValueError`, then range-checked.
 
----
+## Constraints and limitations
 
-## 🚜 On the Farm
+- Loading does not restore the farm. `load_game` appends rows inside the per-cell loop and reassigns a local `farm` that is never returned to the caller, so only the day, energy, money and bag values survive.
+- Non-numeric input is caught and re-prompted, but the calling function then falls through to compare an unassigned `choice`, ending in a traceback.
+- Planting is not gated on energy, so it succeeds at 0 energy and drives the counter negative.
+- Navigation by recursion means the call stack grows for the length of a session, and a long game can approach the interpreter's recursion limit.
 
-### Farm Layout
-- **5x5 grid** with your farmhouse at the center (2,2)
-- Each plot shows:
-  - **Top row**: Crop type (LET/POT/CAU)
-  - **Middle row**: Your position (X)
-  - **Bottom row**: Days until harvest
+## Key takeaways
 
-### Controls
-
-| Key | Action | Energy Cost |
-|-----|--------|-------------|
-| **W** | Move Up | 1 |
-| **A** | Move Left | 1 |
-| **S** | Move Down | 1 |
-| **D** | Move Right | 1 |
-| **P** | Plant Seed | 1 |
-| **H** | Harvest Crop | 1 |
-| **R** | Return to Town | 0 |
-
-### Farming Tips 💡
-1. **Plan ahead**: Cauliflower takes 6 days but gives the best profit
-2. **Manage energy**: You only have 10 energy per day
-3. **Watch the calendar**: You have 20 days to reach $100
-4. **Optimize space**: Use all 24 available plots (excluding the house)
-5. **Balance crops**: Mix quick and slow-growing crops for steady income
-
----
-
-## 🏆 Winning & Losing
-
-### Win Condition
-- Have **$100 or more** by the end of **Day 20**
-- Your profit (money - $100) is recorded on the high score board
-
-### Lose Condition
-- Have **less than $100** by the end of Day 20
-
----
-
-## 💾 Save System
-
-### How to Save
-1. From the town menu, select option **9**
-2. Game saves to `savegame.txt`
-3. Game exits automatically after saving
-
-### How to Load
-1. From the main menu, select option **3**
-2. Loads from `savegame.txt`
-3. Continue where you left off!
-
----
-
-## 📊 Game Statistics
-
-Your stats are displayed at the top of each screen:
-
-```
-+--------------------------------------------------+
-| Day 1             Energy: 10       Money: $20    |
-| Your seeds:                                      |
-|   Lettuce:           5                           |
-+--------------------------------------------------+
-```
-
----
-
-## 🎯 Strategy Guide
-
-### Early Game (Days 1-5)
-- Buy **Lettuce** seeds for quick cash flow
-- Plant immediately to maximize harvests
-- Reinvest profits into more seeds
-
-### Mid Game (Days 6-15)
-- Transition to **Potato** for better profit margins
-- Start planting **Cauliflower** if you have buffer money
-- Keep some plots with quick crops for steady income
-
-### Late Game (Days 16-20)
-- Focus on **harvesting** existing crops
-- Only plant if you have time to harvest
-- Calculate if you'll reach $100 in time
-
----
-
-## 📁 File Structure
-
-```
-sundrop_farm.py           # Main game file
-savegame.txt              # Save file (created when you save)
-scoreboard.txt            # High scores (created after winning)
-README.md                 # This file
-```
-
-**Good luck, farmer! May your crops grow tall and your profits grow taller! 🌱💰**
+- Separating per-crop constants from the logic that consumes them makes the economy table a single editable dictionary rather than scattered literals.
+- A parallel nested list is a workable grid representation at this scale, at the cost of string-typed counters and a scan to locate the player.
+- Text serialisation by hand shows both the appeal of a readable save file and the fragility of parsing it back without a defined format.
+- Layering menus as mutually recursive functions keeps control flow legible while quietly moving a loop's cost onto the call stack.
